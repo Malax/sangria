@@ -13,6 +13,7 @@ class AstSchemaMaterializer[Ctx] private (document: ast.Document, builder: AstSc
 
   private val typeDefCache = TrieMap[String, Type with Named]()
   private val scalarAliasCache = TrieMap[ScalarAlias[_, _], ScalarAlias[_, _]]()
+  private val scalarContextAwareAliasCache = TrieMap[ContextAwareScalarAlias[Ctx, _, _], ContextAwareScalarAlias[Ctx, _, _]]()
 
   private lazy val typeDefs: Vector[ast.TypeDefinition] = document.definitions.collect {
     case d: ast.TypeDefinition ⇒ d
@@ -185,6 +186,10 @@ class AstSchemaMaterializer[Ctx] private (document: ast.Document, builder: AstSc
         scalarAliasCache.getOrElseUpdate(alias, {
           extendScalarAlias(alias)
         }).asInstanceOf[T]
+      case alias: ContextAwareScalarAlias[Ctx, Any, Any] @unchecked ⇒
+        scalarContextAwareAliasCache.getOrElseUpdate(alias, {
+          extendContextAwareScalarAlias(alias)
+        }).asInstanceOf[T]
       case _ ⇒
         getNamedType(tpe.name).asInstanceOf[T]
     }
@@ -254,6 +259,7 @@ class AstSchemaMaterializer[Ctx] private (document: ast.Document, builder: AstSc
   def extendType(existingType: Type with Named): Type with Named = existingType match {
     case tpe: ScalarType[_] ⇒ builder.transformScalarType(tpe, this)
     case tpe: ScalarAlias[_, _] ⇒ extendScalarAlias(tpe.asInstanceOf[ScalarAlias[Any, Any]])
+    case tpe: ContextAwareScalarAlias[Ctx, _, _] ⇒ extendContextAwareScalarAlias(tpe.asInstanceOf[ContextAwareScalarAlias[Ctx, Any, Any]])
     case tpe: EnumType[_] ⇒ builder.transformEnumType(tpe, this)
     case tpe: InputObjectType[_] ⇒ builder.transformInputObjectType(tpe, this)
     case tpe: UnionType[Ctx] ⇒ extendUnionType(tpe)
@@ -377,6 +383,9 @@ class AstSchemaMaterializer[Ctx] private (document: ast.Document, builder: AstSc
 
   def extendScalarAlias(alias: ScalarAlias[Any, Any]) =
     builder.extendScalarAlias(alias, getTypeFromDef(alias.aliasFor), this)
+
+  def extendContextAwareScalarAlias(alias: ContextAwareScalarAlias[Ctx, Any, Any]) =
+    builder.extendContextAwareScalarAlias(alias, getTypeFromDef(alias.aliasFor), this)
 
   def buildInputObjectDef(tpe: ast.InputObjectTypeDefinition) =
     builder.buildInputObjectType(tpe, () ⇒ tpe.fields flatMap (buildInputField(tpe, _)) toList, this)

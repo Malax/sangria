@@ -282,12 +282,42 @@ class ValueCoercionHelper[Ctx](sourceMapper: Option[SourceMapper] = None, deprec
           case Right(v) ⇒ scalar.fromScalar(v)
         }
 
-        resolveCoercedScalar(fromAlias, scalar.toScalar, scalar.aliasFor.asInstanceOf[ScalarType[Any]], value)
+        resolveCoercedScalar(fromAlias, scalar.toScalar, scalar.aliasFor, value)
 
       case (_: ScalarAlias[_, _], value) if iu.isDefined(value) ⇒
         invalidScalarViolation(value)
 
       case (scalar: ScalarAlias[_, _], value) ⇒
+        nullScalarViolation(scalar.aliasFor, value)
+
+      case (scalar: ContextAwareScalarAlias[Ctx, Any, Any] @unchecked, value) if iu.isScalarNode(value) ⇒
+        val coerced = iu.getScalarValue(value) match {
+          case node: ast.Value ⇒ scalar.aliasFor.coerceInput(node)
+          case other ⇒ scalar.aliasFor.coerceUserInput(other)
+        }
+
+        val fromAlias = coerced match {
+          case l: Left[Violation, Any] ⇒ l
+          case Right(v) ⇒ userContext match {
+            case Some(uc) ⇒ scalar.fromScalar(uc, v)
+            // TODO: context is not considered here
+            case None ⇒ throw new IllegalStateException("No context available for context-aware scalar alias.")
+          }
+        }
+
+        def toScalar(v: Any) =
+          userContext match {
+            case Some(uc) ⇒ scalar.toScalar(uc, v)
+            // TODO: context is not considered here
+            case None ⇒ throw new IllegalStateException("No context available for context-aware scalar alias.")
+          }
+
+        resolveCoercedScalar(fromAlias, toScalar, scalar.aliasFor, value)
+
+      case (_: ContextAwareScalarAlias[Ctx, _, _], value) if iu.isDefined(value) ⇒
+        invalidScalarViolation(value)
+
+      case (scalar: ContextAwareScalarAlias[Ctx, _, _], value) ⇒
         nullScalarViolation(scalar.aliasFor, value)
 
       case (enum: EnumType[_], value) if iu.isEnumNode(value) ⇒
@@ -381,6 +411,22 @@ class ValueCoercionHelper[Ctx](sourceMapper: Option[SourceMapper] = None, deprec
       coerced match {
         case Left(violation) ⇒ Vector(violation)
         case Right(v) ⇒ scalar.fromScalar(v) match {
+          case Left(violation) ⇒ Vector(violation)
+          case _ ⇒ Vector.empty
+        }
+      }
+
+    case (scalar: ContextAwareScalarAlias[Ctx, _, _], Some(value)) if um.isScalarNode(value) ⇒
+      val coerced = um.getScalarValue(value) match {
+        case node: ast.Value ⇒ scalar.aliasFor.coerceInput(node)
+        case other ⇒ scalar.aliasFor.coerceUserInput(other)
+      }
+
+      coerced match {
+        case Left(violation) ⇒ Vector(violation)
+        // TODO: context is not considered here
+        case Right(v) if userContext.isEmpty ⇒ Vector.empty
+        case Right(v) ⇒ scalar.fromScalar(userContext.get, v) match {
           case Left(violation) ⇒ Vector(violation)
           case _ ⇒ Vector.empty
         }

@@ -166,6 +166,15 @@ case class ScalarAlias[T, ST](
   def description = aliasFor.description
 }
 
+case class ContextAwareScalarAlias[Ctx, T, ST](
+  aliasFor: ScalarType[ST],
+  toScalar: (Ctx, T) ⇒ ST,
+  fromScalar: (Ctx, ST) ⇒ Either[Violation, T]
+) extends InputType[T @@ CoercedScalaResult] with OutputType[T] with LeafType with NullableType with UnmodifiedType with Named {
+  def name = aliasFor.name
+  def description = aliasFor.description
+}
+
 sealed trait ObjectLikeType[Ctx, Val] extends OutputType[Val] with CompositeType[Val] with NullableType with UnmodifiedType with Named {
   def interfaces: List[InterfaceType[Ctx, _]]
   def astDirectives: Vector[ast.Directive]
@@ -775,6 +784,7 @@ case class Schema[Ctx, Val](
         case t: Named if result contains t.name ⇒
           result get t.name match {
             case Some(found) if !sameType(found._2, t) && t.isInstanceOf[ScalarAlias[_, _]] && found._2.isInstanceOf[ScalarType[_]] ⇒ result
+            case Some(found) if !sameType(found._2, t) && t.isInstanceOf[ContextAwareScalarAlias[_, _, _]] && found._2.isInstanceOf[ScalarType[_]] ⇒ result
             case Some(found) if !sameType(found._2, t) ⇒ typeConflict(t.name, found._2, t, parentInfo)
             case _ ⇒ result
           }
@@ -785,6 +795,7 @@ case class Schema[Ctx, Val](
 
         case t @ ScalarType(name, _, _, _, _, _, _, _) ⇒ updated(priority, name, t, result, parentInfo)
         case ScalarAlias(aliasFor, _, _) ⇒ updated(priority, aliasFor.name, aliasFor, result, parentInfo)
+        case ContextAwareScalarAlias(aliasFor, _, _) ⇒ updated(priority, aliasFor.name, aliasFor, result, parentInfo)
         case t @ EnumType(name, _, _, _) ⇒ updated(priority, name, t, result, parentInfo)
         case t @ InputObjectType(name, _, _, _) ⇒
           t.fields.foldLeft(updated(priority, name, t, result, parentInfo)) {

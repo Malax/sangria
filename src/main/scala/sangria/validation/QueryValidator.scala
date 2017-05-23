@@ -168,6 +168,12 @@ object ValidationContext {
           case _ ⇒ Vector.empty
         }
       }
+    // TODO: context is not considered here
+    case (s: ContextAwareScalarAlias[_, _, _], v) ⇒
+      s.aliasFor.coerceInput(v) match {
+        case Left(violation) ⇒ Vector(violation)
+        case Right(_) ⇒ Vector.empty
+      }
     case (enum: EnumType[_], v) ⇒
       enum.coerceInput(v) match {
         case Left(violation) ⇒ Vector(violation)

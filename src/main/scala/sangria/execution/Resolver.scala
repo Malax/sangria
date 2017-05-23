@@ -835,6 +835,8 @@ class Resolver[Ctx](
         }
       case scalar: ScalarAlias[Any @unchecked, Any @unchecked] ⇒
         resolveValue(path, astFields, scalar.aliasFor, field, scalar.toScalar(value), userCtx)
+      case scalar: ContextAwareScalarAlias[Ctx, Any @unchecked, Any @unchecked] ⇒
+        resolveValue(path, astFields, scalar.aliasFor, field, scalar.toScalar(userCtx, value), userCtx)
       case enum: EnumType[Any @unchecked] ⇒
         try {
           Result(ErrorRegistry.empty,

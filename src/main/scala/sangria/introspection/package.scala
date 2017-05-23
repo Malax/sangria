@@ -112,6 +112,7 @@ package object introspection {
       case _ if !optional ⇒ TypeKind.NonNull
       case _: ScalarType[_] ⇒ TypeKind.Scalar
       case _: ScalarAlias[_, _] ⇒ TypeKind.Scalar
+      case _: ContextAwareScalarAlias[_, _, _] ⇒ TypeKind.Scalar
       case _: ObjectType[_, _] ⇒ TypeKind.Object
       case _: InterfaceType[_, _] ⇒ TypeKind.Interface
       case _: UnionType[_] ⇒ TypeKind.Union

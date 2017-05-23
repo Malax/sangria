@@ -80,6 +80,11 @@ trait AstSchemaBuilder[Ctx] {
     aliasFor: ScalarType[ST],
     mat: AstSchemaMaterializer[Ctx]): ScalarAlias[T, ST]
 
+  def extendContextAwareScalarAlias[T, ST](
+    existing: ContextAwareScalarAlias[Ctx, T, ST],
+    aliasFor: ScalarType[ST],
+    mat: AstSchemaMaterializer[Ctx]): ContextAwareScalarAlias[Ctx, T, ST]
+
   def buildScalarType(
     definition: ast.ScalarTypeDefinition,
     mat: AstSchemaMaterializer[Ctx]): Option[ScalarType[Any]]
@@ -305,6 +310,12 @@ class DefaultAstSchemaBuilder[Ctx] extends AstSchemaBuilder[Ctx] {
 
   def extendScalarAlias[T, ST](
       existing: ScalarAlias[T, ST],
+      aliasFor: ScalarType[ST],
+      mat: AstSchemaMaterializer[Ctx]) =
+    existing.copy(aliasFor = aliasFor)
+
+  def extendContextAwareScalarAlias[T, ST](
+      existing: ContextAwareScalarAlias[Ctx, T, ST],
       aliasFor: ScalarType[ST],
       mat: AstSchemaMaterializer[Ctx]) =
     existing.copy(aliasFor = aliasFor)
